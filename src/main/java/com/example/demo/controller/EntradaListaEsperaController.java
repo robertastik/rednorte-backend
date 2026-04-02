@@ -3,8 +3,10 @@ package com.example.demo.controller;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,7 +26,8 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/lista-espera")
 @RequiredArgsConstructor
 public class EntradaListaEsperaController {
-    private final EntradaListaEsperaRepository entradaListaEsperaRepository;
+    @Autowired
+    private EntradaListaEsperaRepository entradaListaEsperaRepository;
 
     @GetMapping
     public ResponseEntity<List<EntradaListaEspera>> getAll() {
@@ -94,6 +97,20 @@ public class EntradaListaEsperaController {
                 entrada.setPuntajePrioridad(updated.getPuntajePrioridad());
                 entrada.setNotasClinicas(updated.getNotasClinicas());
                 return ResponseEntity.ok(entradaListaEsperaRepository.save(entrada));
+            })
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    @Autowired
+    private KafkaTemplate<String, String> kafkaTemplate;
+
+    // Al cancelar una entrada
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<EntradaListaEspera> cancel(@PathVariable Long id) {
+        return entradaListaEsperaRepository.findById(id)
+            .map(entry -> {
+                kafkaTemplate.send("waiting-list-events", "CANCELACION:" + id);
+                return ResponseEntity.ok(entry);
             })
             .orElse(ResponseEntity.notFound().build());
     }

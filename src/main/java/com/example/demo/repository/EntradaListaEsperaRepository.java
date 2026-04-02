@@ -1,6 +1,5 @@
 package com.example.demo.repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -26,7 +25,7 @@ public interface EntradaListaEsperaRepository extends JpaRepository<EntradaLista
     List<EntradaListaEspera> findByDoctorAsignadoIsNullAndEstado(EstadoListaEspera estado);
 
     List<EntradaListaEspera> findByEstadoAndFechaRegistroLessThanEqualOrderByFechaRegistroAsc(
-        EstadoListaEspera estado, LocalDateTime fechaLimite
+        EstadoListaEspera estado, String limitDate
     );
 
     Long countByEspecialidadIdAndEstado(Long especialidadId, EstadoListaEspera estado);

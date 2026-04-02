@@ -5,6 +5,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.web.SecurityFilterChain;
 
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtDecoders;
 import org.springframework.security.config.Customizer;
 
 import org.springframework.web.cors.CorsConfiguration;
@@ -36,6 +38,11 @@ public class SecurityConfig {
             );
 
         return http.build();
+    }
+
+    @Bean
+    public JwtDecoder jwtDecoder() {
+        return JwtDecoders.fromIssuerLocation("https://dev-robgo.us.auth0.com/");
     }
 
     @Bean

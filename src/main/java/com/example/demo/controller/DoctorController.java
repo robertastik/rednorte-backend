@@ -2,8 +2,10 @@ package com.example.demo.controller;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -65,10 +67,16 @@ public class DoctorController {
                 doctor.setNombreCompleto(updated.getNombreCompleto());
                 doctor.setDisponible(updated.getDisponible());
                 doctor.setEspecialidad(updated.getEspecialidad());
-                return ResponseEntity.ok(doctorRepository.save(doctor));
+                Doctor saved = doctorRepository.save(doctor);
+                kafkaTemplate.send("doctor-events",
+                    id + ":" + updated.getDisponible());
+                return ResponseEntity.ok(saved);
             })
             .orElse(ResponseEntity.notFound().build());
     }
+
+    @Autowired
+    private KafkaTemplate<String, String> kafkaTemplate;
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
