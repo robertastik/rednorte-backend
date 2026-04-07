@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -16,7 +17,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.model.Doctor;
+import com.example.demo.model.DoctorProtos;
 import com.example.demo.repository.DoctorRepository;
+import com.example.demo.repository.EspecialidadMedicaRepository;
+import com.example.demo.util.ProtobufMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,52 +29,94 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DoctorController {
     private final DoctorRepository doctorRepository;
+    
+    @Autowired
+    private EspecialidadMedicaRepository especialidadRepository;
 
     @GetMapping
-    public ResponseEntity<List<Doctor>> getAll() {
-        return ResponseEntity.ok(doctorRepository.findAll());
+    public ResponseEntity<DoctorProtos.DoctorList> getAll() {
+        List<Doctor> doctores = doctorRepository.findAll();
+        List<DoctorProtos.Doctor> protos = doctores.stream()
+                .map(ProtobufMapper::toProto)
+                .collect(Collectors.toList());
+                
+        DoctorProtos.DoctorList response = DoctorProtos.DoctorList.newBuilder()
+                .addAllDoctors(protos)
+                .build();
+                
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Doctor> getById(@PathVariable Long id) {
+    public ResponseEntity<DoctorProtos.Doctor> getById(@PathVariable Long id) {
         return doctorRepository.findById(id)
+            .map(ProtobufMapper::toProto)
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/available")
-    public ResponseEntity<List<Doctor>> getAvailable() {
-        return ResponseEntity.ok(doctorRepository.findByDisponibleTrue());
+    public ResponseEntity<DoctorProtos.DoctorList> getAvailable() {
+        List<Doctor> doctores = doctorRepository.findByDisponibleTrue();
+        List<DoctorProtos.Doctor> protos = doctores.stream()
+                .map(ProtobufMapper::toProto)
+                .collect(Collectors.toList());
+                
+        DoctorProtos.DoctorList response = DoctorProtos.DoctorList.newBuilder()
+                .addAllDoctors(protos)
+                .build();
+                
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/especialidad/{especialidadId}/available")
-    public ResponseEntity<List<Doctor>> getAvailableByEspecialty(@PathVariable Long especialidadId) {
-        return ResponseEntity.ok(
-            doctorRepository.findByEspecialidadIdAndDisponibleTrue(especialidadId)
-        );
+    public ResponseEntity<DoctorProtos.DoctorList> getAvailableByEspecialty(@PathVariable Long especialidadId) {
+        List<Doctor> doctores = doctorRepository.findByEspecialidadIdAndDisponibleTrue(especialidadId);
+        List<DoctorProtos.Doctor> protos = doctores.stream()
+                .map(ProtobufMapper::toProto)
+                .collect(Collectors.toList());
+                
+        DoctorProtos.DoctorList response = DoctorProtos.DoctorList.newBuilder()
+                .addAllDoctors(protos)
+                .build();
+                
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping
-    public ResponseEntity<Doctor> create(@RequestBody Doctor doctor) {
-        if (doctorRepository.existsByNumeroLicencia(doctor.getNumeroLicencia())) {
+    public ResponseEntity<DoctorProtos.Doctor> create(@RequestBody DoctorProtos.Doctor proto) {
+        if (doctorRepository.existsByNumeroLicencia(proto.getNumeroLicencia())) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
+        
+        Doctor doctor = ProtobufMapper.toEntity(proto);
+        
+        // Asignar especialidad manejada manualmente si se recibe el ID en el proto nested
+        if (proto.hasEspecialidad() && proto.getEspecialidad().getId() != 0) {
+            especialidadRepository.findById(proto.getEspecialidad().getId()).ifPresent(doctor::setEspecialidad);
+        }
+        
+        Doctor saved = doctorRepository.save(doctor);
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(doctorRepository.save(doctor));
+            .body(ProtobufMapper.toProto(saved));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Doctor> update(@PathVariable Long id,
-                                         @RequestBody Doctor updated) {
+    public ResponseEntity<DoctorProtos.Doctor> update(@PathVariable Long id,
+                                         @RequestBody DoctorProtos.Doctor updatedProto) {
         return doctorRepository.findById(id)
             .map(doctor -> {
-                doctor.setNombreCompleto(updated.getNombreCompleto());
-                doctor.setDisponible(updated.getDisponible());
-                doctor.setEspecialidad(updated.getEspecialidad());
+                doctor.setNombreCompleto(updatedProto.getNombreCompleto());
+                doctor.setDisponible(updatedProto.getDisponible());
+                
+                if (updatedProto.hasEspecialidad() && updatedProto.getEspecialidad().getId() != 0) {
+                    especialidadRepository.findById(updatedProto.getEspecialidad().getId()).ifPresent(doctor::setEspecialidad);
+                }
+                
                 Doctor saved = doctorRepository.save(doctor);
                 kafkaTemplate.send("doctor-events",
-                    id + ":" + updated.getDisponible());
-                return ResponseEntity.ok(saved);
+                    id + ":" + updatedProto.getDisponible());
+                return ResponseEntity.ok(ProtobufMapper.toProto(saved));
             })
             .orElse(ResponseEntity.notFound().build());
     }

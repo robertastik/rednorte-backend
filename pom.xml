@@ -134,8 +134,8 @@
 				<artifactId>protobuf-maven-plugin</artifactId>
 				<version>0.6.1</version>
 				<configuration>
-					<!-- Usamos la versión 3.21.12 para que coincida con tus dependencias -->
-					<protocArtifact>com.google.protobuf:protoc:3.21.12:exe:${os.detected.classifier}</protocArtifact>
+					<!-- Usamos la versión 3.25.5 fija para Windows, para evitar errores de resolución en VS Code -->
+					<protocArtifact>com.google.protobuf:protoc:3.25.5:exe:windows-x86_64</protocArtifact>
 				</configuration>
 				<executions>
 					<execution>

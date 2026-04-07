@@ -28,17 +28,17 @@ public class EntradaListaEspera {
     private Long id;
 
     // Muchas entradas → un paciente
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "paciente_id", nullable = false)
     private Paciente paciente;
 
     // Muchas entradas → una especialidad
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "especialidad_id", nullable = false)
     private EspecialidadMedica especialidad;
 
     // Muchas entradas → un doctor (nullable: puede no tener doctor aún)
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "doctor_id")
     private Doctor doctorAsignado;
 

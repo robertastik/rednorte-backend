@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,7 +16,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.model.EspecialidadMedica;
+import com.example.demo.model.EspecialidadMedicaProtos;
 import com.example.demo.repository.EspecialidadMedicaRepository;
+import com.example.demo.util.ProtobufMapper;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,35 +30,51 @@ public class EspecialidadMedicaController {
     private EspecialidadMedicaRepository especialidadRepository;
 
     @GetMapping
-    public ResponseEntity<List<EspecialidadMedica>> getAll() {
-        return ResponseEntity.ok(especialidadRepository.findAll());
+    public ResponseEntity<EspecialidadMedicaProtos.EspecialidadMedicaList> getAll() {
+        List<EspecialidadMedica> especialidades = especialidadRepository.findAll();
+        List<EspecialidadMedicaProtos.EspecialidadMedica> protos = especialidades.stream()
+                .map(ProtobufMapper::toProto)
+                .collect(Collectors.toList());
+                
+        EspecialidadMedicaProtos.EspecialidadMedicaList response = EspecialidadMedicaProtos.EspecialidadMedicaList.newBuilder()
+                .addAllEspecialidades(protos)
+                .build();
+                
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<EspecialidadMedica> getById(@PathVariable Long id) {
+    public ResponseEntity<EspecialidadMedicaProtos.EspecialidadMedica> getById(@PathVariable Long id) {
         return especialidadRepository.findById(id)
+            .map(ProtobufMapper::toProto)
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public ResponseEntity<EspecialidadMedica> create(@RequestBody EspecialidadMedica especialidad) {
-        if (especialidadRepository.existsByCodigo(especialidad.getCodigo())) {
+    public ResponseEntity<EspecialidadMedicaProtos.EspecialidadMedica> create(@RequestBody EspecialidadMedicaProtos.EspecialidadMedica proto) {
+        if (especialidadRepository.existsByCodigo(proto.getCodigo())) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
+        
+        EspecialidadMedica especialidad = ProtobufMapper.toEntity(proto);
+        EspecialidadMedica saved = especialidadRepository.save(especialidad);
+        
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(especialidadRepository.save(especialidad));
+            .body(ProtobufMapper.toProto(saved));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<EspecialidadMedica> update(@PathVariable Long id,
-                                                    @RequestBody EspecialidadMedica updated) {
+    public ResponseEntity<EspecialidadMedicaProtos.EspecialidadMedica> update(@PathVariable Long id,
+                                                    @RequestBody EspecialidadMedicaProtos.EspecialidadMedica updatedProto) {
         return especialidadRepository.findById(id)
             .map(especialidad -> {
-                especialidad.setNombre(updated.getNombre());
-                especialidad.setCodigo(updated.getCodigo());
-                especialidad.setDiasEsperaPromedio(updated.getDiasEsperaPromedio());
-                return ResponseEntity.ok(especialidadRepository.save(especialidad));
+                especialidad.setNombre(updatedProto.getNombre());
+                especialidad.setCodigo(updatedProto.getCodigo());
+                especialidad.setDiasEsperaPromedio(updatedProto.getDiasEsperaPromedio());
+                
+                EspecialidadMedica saved = especialidadRepository.save(especialidad);
+                return ResponseEntity.ok(ProtobufMapper.toProto(saved));
             })
             .orElse(ResponseEntity.notFound().build());
     }
